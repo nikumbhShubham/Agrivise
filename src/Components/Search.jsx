@@ -2,31 +2,65 @@ import React, { useState } from 'react';
 import { FaSearch, FaCaretDown } from 'react-icons/fa';
 
 const SearchPage = () => {
-  // State for search form
   const [commodity, setCommodity] = useState('');
   const [date, setDate] = useState('');
   const [state, setState] = useState('');
 
-  // State for modal visibility
   const [showModal, setShowModal] = useState(false);
-
-  // Data to be shown in the modal (could be dynamically fetched)
-  const [searchResult, setSearchResult] = useState({
-    commodityName: 'Rice',
-    date: '12-08-2024',
-    state: 'Bihar',
-    price: '42.233',
-  });
+  const [searchResult, setSearchResult] = useState(null);
+  const [error, setError] = useState('');
 
   // Handle Search button click
-  const handleSearch = () => {
-    // Open modal and show search result
-    setShowModal(true);
+  const handleSearch = async () => {
+    setError('');
+
+    const formattedDate = date ? date : new Date().toISOString().slice(0, 10); // Ensure the date is in yyyy-mm-dd
+
+    const data = {
+      commodity: commodity,
+      date: formattedDate,
+      state: state,
+    };
+
+    try {
+      const response = await fetch('https://agrivise.onrender.com/predict', {
+        method: 'POST',
+        // mode:'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch prediction');
+      }
+
+      const result = await response.json();
+
+      // Handle the response to extract the prediction value
+      const prediction = result.prediction ? result.prediction[0] : 'N/A';
+
+      setSearchResult({
+        commodityName: commodity,
+        date: formattedDate,
+        state: state,
+        price: prediction,
+      });
+
+      setShowModal(true);
+
+    } catch (error) {
+      console.error('Error fetching prediction:', error);
+      setError('There was an error fetching the prediction. Please try again.');
+      console.log("Data being sent to backend:", data);
+    }
   };
 
   // Close modal
   const handleCloseModal = () => {
     setShowModal(false);
+    setSearchResult(null);
   };
 
   return (
@@ -119,6 +153,13 @@ const SearchPage = () => {
             </div>
           </div>
 
+          {/* Error message */}
+          {error && (
+            <div className="mt-4 text-red-500 text-center">
+              {error}
+            </div>
+          )}
+
           {/* Search Button */}
           <div className="mt-10 text-center">
             <button
@@ -132,7 +173,7 @@ const SearchPage = () => {
       </div>
 
       {/* Modal */}
-      {showModal && (
+      {showModal && searchResult && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
           <div className="bg-green-100 p-8 rounded-lg shadow-lg max-w-lg w-full text-center">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Search Results</h2>
@@ -149,21 +190,16 @@ const SearchPage = () => {
               >
                 Reset Filters
               </button>
-              <button className="bg-orange-400 hover:bg-orange-500 text-white px-6 py-2 rounded-full font-semibold transition duration-300">
-                Download Data
-              </button>
-              <button className="bg-blue-400 hover:bg-blue-500 text-white px-6 py-2 rounded-full font-semibold transition duration-300">
-                View Charts
+              <button
+                onClick={handleCloseModal}
+                className="bg-red-400 hover:bg-red-500 text-white px-6 py-2 rounded-full font-semibold transition duration-300"
+              >
+                Close
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Footer */}
-      <footer className="bg-gray-100 text-gray-600 py-8 mt-16 text-center">
-        <p className="text-sm">© 2024 AgriVise. All Rights Reserved.</p>
-      </footer>
     </div>
   );
 };
